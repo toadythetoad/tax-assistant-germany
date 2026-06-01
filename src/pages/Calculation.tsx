@@ -5,25 +5,33 @@ import { calculateTax } from '../utils/taxCalculator';
 export default function Calculation() {
   const { app, setApp } = useApp();
   const { t } = useLanguage();
-  const data = app.taxReturn;
+  const data = app.taxReturn || {};
+  const profile = app.profile || {};
 
-  const incomeFields = [
-    'incomeEmployment', 'incomeSelfEmployment', 'incomeCapital',
-    'incomeRental', 'incomePension', 'incomeOther',
-  ];
-  const expenseFields = [
-    'expensesAdvertising', 'expensesSpecial', 'expensesHousehold',
-    'expensesExtraordinary', 'expensesDonations', 'expensesInsurance',
-  ];
+  const result = calculateTax({
+    incomeEmployment: data.incomeEmployment || 0,
+    incomeSelfEmployment: data.incomeSelfEmployment || 0,
+    incomeCapital: data.incomeCapital || 0,
+    incomeRental: data.incomeRental || 0,
+    incomePension: data.incomePension || 0,
+    incomeOther: data.incomeOther || 0,
+    expensesAdvertising: data.expensesAdvertising || 0,
+    expensesSpecial: data.expensesSpecial || 0,
+    expensesHousehold: data.expensesHousehold || 0,
+    expensesExtraordinary: data.expensesExtraordinary || 0,
+    expensesDonations: data.expensesDonations || 0,
+    expensesInsurance: data.expensesInsurance || 0,
+    maritalStatus: profile.maritalStatus || 'single',
+    children: data.children || profile.children || 0,
+    state: profile.state || app.state,
+    religion: profile.religion || 'none',
+    withholdingTax: data.withholdingTax || 0,
+    withholdingSoli: data.withholdingSoli || 0,
+    withholdingChurch: data.withholdingChurch || 0,
+    capitalGainsWithholding: data.capitalGainsWithholding || 0,
+  });
 
-  const grossIncome = incomeFields.reduce((s, f) => s + (data?.[f] || 0), 0);
-  const totalExpenses = expenseFields.reduce((s, f) => s + (data?.[f] || 0), 0);
-  const children = data?.children || 0;
-  const church = data?.religion && data.religion !== 'none';
-
-  const result = grossIncome > 0
-    ? calculateTax(grossIncome, totalExpenses, 0, app.state, children, church)
-    : null;
+  const isRefund = result.balance < 0;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -37,14 +45,14 @@ export default function Calculation() {
         </div>
       </header>
 
-      <div className="max-w-4xl mx-auto px-4 py-6">
-        {!result ? (
+      <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+        {result.grossIncome <= 0 ? (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
             <p className="text-gray-400">{t.interview.noData}</p>
             <Button className="mt-4" onClick={() => setApp({ page: 'interview' })}>{t.dashboard.startInterview}</Button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <>
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <h2 className="font-semibold text-gray-900 mb-4">{t.calculation.calculationBasis}</h2>
               <div className="space-y-3">
@@ -57,46 +65,70 @@ export default function Calculation() {
               </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h2 className="font-semibold text-gray-900 mb-4">{t.calculation.title}</h2>
-              <div className="space-y-3">
-                <Row label={t.calculation.incomeTax} value={result.incomeTax} />
-                <Row label={t.calculation.solidaritySurcharge} value={result.solidaritySurcharge} />
-                <Row label={t.calculation.churchTax} value={result.churchTax} />
-                <hr />
-                <Row label={t.calculation.totalTax} value={result.totalTax} bold />
-                <Row label={t.calculation.effectiveTaxRate} value={parseFloat(result.effectiveTaxRate)} suffix="%" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <h2 className="font-semibold text-gray-900 mb-4">Steuerschuld</h2>
+                <div className="space-y-3">
+                  <Row label="Einkommensteuer" value={result.incomeTax} />
+                  <Row label="Solidaritätszuschlag" value={result.solidaritySurcharge} />
+                  <Row label="Kirchensteuer" value={result.churchTax} />
+                  <hr />
+                  <Row label="Steuerschuld gesamt" value={result.totalTax} bold />
+                  <Row label="Durchschnittssteuersatz" value={parseFloat(result.effectiveTaxRate)} suffix="%" />
+                  <Row label="Grenzsteuersatz" value={result.marginalTaxRate} suffix="%" />
+                </div>
+              </div>
+
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <h2 className="font-semibold text-gray-900 mb-4">Bereits gezahlte Steuern</h2>
+                <div className="space-y-3">
+                  <Row label="Lohnsteuer" value={result.alreadyPaidLohnsteuer} />
+                  <Row label="Solidaritätszuschlag" value={result.alreadyPaidSoli} />
+                  <Row label="Kirchensteuer" value={result.alreadyPaidChurch} />
+                  <Row label="Kapitalertragsteuer" value={result.alreadyPaidKapital} />
+                  <hr />
+                  <Row label="Bereits gezahlt gesamt" value={result.totalAlreadyPaid} bold />
+                </div>
+              </div>
+            </div>
+
+            <div className={`rounded-xl shadow-sm border-2 p-6 ${isRefund ? 'bg-green-50 border-green-400' : 'bg-red-50 border-red-400'}`}>
+              <div className="text-center">
+                <p className="text-sm text-gray-500 mb-1">
+                  {isRefund ? 'Erstattung' : 'Nachzahlung'}
+                </p>
+                <p className={`text-3xl font-bold ${isRefund ? 'text-green-600' : 'text-red-600'}`}>
+                  {isRefund ? '-' : '+'}{Math.abs(result.balance).toLocaleString('de-DE')} €
+                </p>
+                <p className="text-xs text-gray-400 mt-2">
+                  Steuerschuld {result.totalTax.toLocaleString('de-DE')} €
+                  – bereits gezahlt {result.totalAlreadyPaid.toLocaleString('de-DE')} €
+                </p>
               </div>
             </div>
 
             <div className="md:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <h2 className="font-semibold text-gray-900 mb-4">{t.calculation.stateSpecific}</h2>
-              <div className="tooltip-trigger inline-block text-blue-500 cursor-help mb-3">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 inline" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                </svg>
-                <span className="tooltip-text">{t.calculation.stateSpecificHelp}</span>
-              </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                 <div>
                   <span className="text-gray-500">{t.settings.state}</span>
                   <p className="font-medium">{(t.states as any)[app.state]}</p>
                 </div>
                 <div>
-                  <span className="text-gray-500">{t.calculation.effectiveTaxRate}</span>
-                  <p className="font-medium">{result.effectiveTaxRate}%</p>
-                </div>
-                <div>
-                  <span className="text-gray-500">{t.calculation.marginalTaxRate}</span>
-                  <p className="font-medium">{result.marginalTaxRate}%</p>
+                  <span className="text-gray-500">Familienstand</span>
+                  <p className="font-medium">{profile.maritalStatus === 'married' ? 'Verheiratet (Splitting)' : 'Ledig'}</p>
                 </div>
                 <div>
                   <span className="text-gray-500">{t.profile.religion}</span>
-                  <p className="font-medium">{church ? (t.profile as any)[`religion${data.religion.charAt(0).toUpperCase() + data.religion.slice(1)}`] || t.profile.religionCatholic : t.profile.religionNone}</p>
+                  <p className="font-medium">{result.churchTax > 0 ? 'Ja' : 'Nein'}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500">Kinder</span>
+                  <p className="font-medium">{result.childAllowance > 0 ? `${data.children || 0} (Freibetrag)` : '0'}</p>
                 </div>
               </div>
             </div>
-          </div>
+          </>
         )}
       </div>
     </div>

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useApp, useLanguage } from '../store/AppContext';
 import { NumberInput, Button } from '../components/FormComponents';
 
-const steps = ['stepPersonal', 'stepIncome', 'stepExpenses', 'stepDeductions', 'stepSummary'];
+const steps = ['stepPersonal', 'stepIncome', 'stepExpenses', 'stepDeductions', 'stepPaid', 'stepSummary'];
 
 export default function Interview() {
   const { app, setApp } = useApp();
@@ -130,6 +130,44 @@ export default function Interview() {
           )}
 
           {step === 4 && (
+            <div>
+              <h2 className="text-lg font-semibold mb-4">Bereits gezahlte Steuern</h2>
+              <p className="text-sm text-gray-500 mb-4">
+                Tragen Sie die Steuerbeträge ein, die bereits über die Lohnabrechnung oder
+                Kapitalerträge einbehalten wurden. Diese werden von der berechneten Steuerschuld abgezogen.
+              </p>
+              <div className="space-y-4">
+                <NumberInput
+                  label="Lohnsteuer (einbehalten)"
+                  helpKey="interview.expensesDonationsHelp"
+                  min={0} step={100}
+                  value={data.withholdingTax || 0}
+                  onChange={(e) => set('withholdingTax', parseFloat(e.target.value) || 0)}
+                />
+                <NumberInput
+                  label="Solidaritätszuschlag (einbehalten)"
+                  min={0} step={10}
+                  value={data.withholdingSoli || 0}
+                  onChange={(e) => set('withholdingSoli', parseFloat(e.target.value) || 0)}
+                />
+                <NumberInput
+                  label="Kirchensteuer (einbehalten)"
+                  min={0} step={10}
+                  value={data.withholdingChurch || 0}
+                  onChange={(e) => set('withholdingChurch', parseFloat(e.target.value) || 0)}
+                />
+                <NumberInput
+                  label="Kapitalertragsteuer (einbehalten)"
+                  helpKey="interview.expensesDonationsHelp"
+                  min={0} step={100}
+                  value={data.capitalGainsWithholding || 0}
+                  onChange={(e) => set('capitalGainsWithholding', parseFloat(e.target.value) || 0)}
+                />
+              </div>
+            </div>
+          )}
+
+          {step === 5 && (
             <div>
               <h2 className="text-lg font-semibold mb-4">{(t.interview as any)[steps[step]]}</h2>
               <div className="space-y-3">
