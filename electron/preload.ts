@@ -19,5 +19,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   ocr: {
     processFile: (filePath: string) => ipcRenderer.invoke('ocr:processFile', filePath),
     ocrImageBuffer: (base64DataUrl: string) => ipcRenderer.invoke('ocr:ocrImageBuffer', base64DataUrl),
+    paddleFile: (filePath: string) => ipcRenderer.invoke('ocr:paddleFile', filePath),
   },
 });

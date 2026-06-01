@@ -4,6 +4,7 @@ import log from 'electron-log';
 import fs from 'fs';
 import path from 'path';
 import mammoth from 'mammoth';
+import { ocrBufferPaddle } from './ocrPaddle';
 
 export const IMAGE_MIME: Record<string, string> = {
   '.jpg': 'image/jpeg',
@@ -136,7 +137,25 @@ export async function ocrImageBuffer(base64DataUrl: string): Promise<{ text: str
   });
   const result = await worker.recognize(base64DataUrl);
   await worker.terminate();
-  return { text: result.data.text, confidence: result.data.confidence };
+
+  const confidence = result.data.confidence;
+  const text = result.data.text;
+
+  if (confidence < 0.5 || (text.trim().length > 0 && text.trim().length < 30)) {
+    log.info('Tesseract insufficient on buffer, trying PaddleOCR fallback...');
+    try {
+      const base64Data = base64DataUrl.split(',')[1];
+      const buffer = Buffer.from(base64Data, 'base64');
+      const paddleResult = await ocrBufferPaddle(buffer);
+      if (paddleResult.text.trim().length > text.trim().length) {
+        return paddleResult;
+      }
+    } catch (e) {
+      log.error('PaddleOCR buffer fallback failed:', e);
+    }
+  }
+
+  return { text, confidence };
 }
 
 // ── DOCX extraction via mammoth ──────────────────────────────────────────────
@@ -200,12 +219,43 @@ async function processImage(filePath: string): Promise<OCRResult> {
   const text = result.data.text;
   const lines = text.split('\n').filter((line: string) => line.trim().length > 0);
   const extractedData = analyzeDocument(text);
+  const confidence = result.data.confidence;
 
-  log.info('OCR completed, confidence:', result.data.confidence, 'text length:', text.length);
+  log.info('Tesseract OCR completed, confidence:', confidence, 'text length:', text.length);
+
+  // Try PaddleOCR as fallback when Tesseract confidence is low or text is too sparse
+  if (confidence < 0.5 || (text.trim().length > 0 && text.trim().length < 30)) {
+    log.info('Tesseract quality insufficient, falling back to PaddleOCR...');
+    try {
+      const paddleResult = await ocrBufferPaddle(imageBuffer);
+      const paddleText = paddleResult.text;
+      const paddleLines = paddleText.split('\n').filter((l: string) => l.trim().length > 0);
+      const paddleExtracted = analyzeDocument(paddleText);
+
+      const tesseractHasData = Object.values(extractedData).some(v => v !== undefined && v !== 0);
+      const paddleHasData = Object.values(paddleExtracted).some(v => v !== undefined && v !== 0);
+
+      log.info('PaddleOCR confidence:', paddleResult.confidence, 'text length:', paddleText.length,
+        'Tesseract had data:', tesseractHasData, 'Paddle has data:', paddleHasData);
+
+      // Use PaddleOCR result if it found more data or has better coverage
+      if (paddleHasData || paddleResult.confidence > confidence) {
+        return {
+          text: paddleText,
+          confidence: paddleResult.confidence,
+          lines: paddleLines,
+          extractedData: paddleExtracted,
+          source: 'ocr',
+        };
+      }
+    } catch (paddleError) {
+      log.error('PaddleOCR fallback failed:', paddleError);
+    }
+  }
 
   return {
     text,
-    confidence: result.data.confidence,
+    confidence,
     lines,
     extractedData,
     source: 'ocr',

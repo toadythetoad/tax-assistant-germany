@@ -120,3 +120,13 @@ ipcMain.handle('ocr:ocrImageBuffer', async (_, base64DataUrl: string) => {
     return { error: String(e) };
   }
 });
+
+ipcMain.handle('ocr:paddleFile', async (_, filePath: string) => {
+  const { ocrImagePaddle } = require('./ocrPaddle');
+  try {
+    const result = await ocrImagePaddle(filePath);
+    return result;
+  } catch (e) {
+    return { error: String(e) };
+  }
+});
