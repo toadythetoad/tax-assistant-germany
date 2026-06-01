@@ -126,8 +126,26 @@ function analyzeDocument(text: string): OCRResult['extractedData'] {
 }
 
 // ── OCR image buffer (base64 data URL → text) ──────────────────────────────
+// Used for scanned PDF pages rendered in the browser canvas.
+// PaddleOCR is the primary engine (better for document scans);
+// Tesseract is a fallback if PaddleOCR fails.
 
 export async function ocrImageBuffer(base64DataUrl: string): Promise<{ text: string; confidence: number }> {
+  const base64Data = base64DataUrl.split(',')[1];
+  const buffer = Buffer.from(base64Data, 'base64');
+
+  // Try PaddleOCR first (best for document scans)
+  try {
+    const paddleResult = await ocrBufferPaddle(buffer);
+    if (paddleResult.text.trim().length > 10) {
+      log.info('PaddleOCR buffer result: confidence', paddleResult.confidence, 'chars:', paddleResult.text.length);
+      return paddleResult;
+    }
+  } catch (e) {
+    log.error('PaddleOCR buffer failed, falling back to Tesseract:', e);
+  }
+
+  // Fallback: Tesseract
   const worker = await createWorker('deu', undefined, {
     logger: (m: any) => {
       if (m.status === 'recognizing text') {
@@ -137,25 +155,8 @@ export async function ocrImageBuffer(base64DataUrl: string): Promise<{ text: str
   });
   const result = await worker.recognize(base64DataUrl);
   await worker.terminate();
-
-  const confidence = result.data.confidence;
-  const text = result.data.text;
-
-  if (confidence < 0.5 || (text.trim().length > 0 && text.trim().length < 30)) {
-    log.info('Tesseract insufficient on buffer, trying PaddleOCR fallback...');
-    try {
-      const base64Data = base64DataUrl.split(',')[1];
-      const buffer = Buffer.from(base64Data, 'base64');
-      const paddleResult = await ocrBufferPaddle(buffer);
-      if (paddleResult.text.trim().length > text.trim().length) {
-        return paddleResult;
-      }
-    } catch (e) {
-      log.error('PaddleOCR buffer fallback failed:', e);
-    }
-  }
-
-  return { text, confidence };
+  log.info('Tesseract buffer fallback: confidence', result.data.confidence, 'chars:', result.data.text.length);
+  return { text: result.data.text, confidence: result.data.confidence };
 }
 
 // ── DOCX extraction via mammoth ──────────────────────────────────────────────
