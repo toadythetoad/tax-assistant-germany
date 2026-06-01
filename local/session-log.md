@@ -61,6 +61,14 @@
 - anleitung.pdf: PDFkit-generiertes Handbuch
 - log.md erstellt
 
+### 2026-06-01
+- PaddleOCR als primäre Engine für gescannte PDF-Seiten (Tesseract nur Fallback)
+- Steuerberechnung erweitert: §32a EStG 2024 Tarif, Splittingtabelle, Nachzahlung/Rückzahlung
+- Documents-Seite: Datei-Vorschau mit DocumentPreview (Klick auf Dateinamen)
+- LanguageToggle: bottom-right (kein Overlap mit Header-Buttons)
+- anleitung.pdf: Vollständiges Handbuch via pdfkit generiert (10 Kapitel)
+- local/session-log.md: Entwicklungschronik für Agent
+
 ## Build & Deploy
 - Build: `npm run build` (Vite + TSC)
 - Packaging: `npm run package` → `release/Steuer Assistent 2.0.exe`
