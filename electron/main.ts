@@ -111,3 +111,12 @@ ipcMain.handle('ocr:processFile', async (_, filePath: string) => {
     return { error: String(e) };
   }
 });
+
+ipcMain.handle('ocr:ocrImageBuffer', async (_, base64DataUrl: string) => {
+  const { ocrImageBuffer } = require('./ocr');
+  try {
+    return await ocrImageBuffer(base64DataUrl);
+  } catch (e) {
+    return { error: String(e) };
+  }
+});

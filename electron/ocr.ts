@@ -1,8 +1,20 @@
-// Main-process OCR implementation
+// Main-process OCR implementation – supports ALL document types
 import { createWorker } from 'tesseract.js';
 import log from 'electron-log';
 import fs from 'fs';
 import path from 'path';
+import mammoth from 'mammoth';
+
+export const IMAGE_MIME: Record<string, string> = {
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.tif': 'image/tiff',
+  '.tiff': 'image/tiff',
+  '.bmp': 'image/bmp',
+};
 
 export interface OCRResult {
   text: string;
@@ -22,7 +34,9 @@ export interface OCRResult {
     pensionContributions?: number;
     insurancePremiums?: number;
   };
-  source: 'pdf' | 'ocr';
+  source: 'pdf' | 'ocr' | 'docx' | 'text';
+  needsPageRendering?: boolean;
+  pageCount?: number;
 }
 
 function extractGermanCurrency(text: string, patterns: RegExp[]): number | undefined {
@@ -110,34 +124,38 @@ function analyzeDocument(text: string): OCRResult['extractedData'] {
   return data;
 }
 
-async function extractTextFromPDF(filePath: string): Promise<string> {
-  log.info('Extracting text from PDF:', filePath);
+// ── OCR image buffer (base64 data URL → text) ──────────────────────────────
 
-  const pdfjsLib = require('pdfjs-dist/legacy/build/pdf');
-  const fileBuffer = fs.readFileSync(filePath);
-  const data = new Uint8Array(fileBuffer);
-  const pdf = await pdfjsLib.getDocument({ data }).promise;
-
-  let fullText = '';
-  let pagesWithText = 0;
-
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
-    const content = await page.getTextContent();
-    const pageText = content.items
-      .map((item: any) => item.str)
-      .filter((s: string) => s && s.trim().length > 0)
-      .join(' ');
-
-    if (pageText.trim().length > 0) {
-      pagesWithText++;
-      fullText += pageText + '\n';
-    }
-  }
-
-  log.info('Extracted', fullText.length, 'characters from', pagesWithText, '/', pdf.numPages, 'pages');
-  return fullText;
+export async function ocrImageBuffer(base64DataUrl: string): Promise<{ text: string; confidence: number }> {
+  const worker = await createWorker('deu', undefined, {
+    logger: (m: any) => {
+      if (m.status === 'recognizing text') {
+        log.info('Buffer OCR Progress:', Math.round(m.progress * 100) + '%');
+      }
+    },
+  });
+  const result = await worker.recognize(base64DataUrl);
+  await worker.terminate();
+  return { text: result.data.text, confidence: result.data.confidence };
 }
+
+// ── DOCX extraction via mammoth ──────────────────────────────────────────────
+
+async function extractTextFromDOCX(filePath: string): Promise<string> {
+  log.info('Extracting text from DOCX:', filePath);
+  const buffer = fs.readFileSync(filePath);
+  const result = await mammoth.extractRawText({ buffer });
+  return result.value;
+}
+
+// ── TXT / plain text ─────────────────────────────────────────────────────────
+
+async function extractTextFromTXT(filePath: string): Promise<string> {
+  log.info('Reading text file:', filePath);
+  return fs.readFileSync(filePath, 'utf-8');
+}
+
+// ── Image OCR (jpg, png, tiff, gif, webp, bmp) ──────────────────────────────
 
 async function processImage(filePath: string): Promise<OCRResult> {
   log.info('Starting image OCR for:', filePath);
@@ -152,11 +170,18 @@ async function processImage(filePath: string): Promise<OCRResult> {
   }
 
   const ext = path.extname(filePath).toLowerCase();
-  let mimeType = 'image/png';
-  if (ext === '.jpg' || ext === '.jpeg') mimeType = 'image/jpeg';
-  else if (ext === '.gif') mimeType = 'image/gif';
-  else if (ext === '.webp') mimeType = 'image/webp';
-  else if (ext === '.tif' || ext === '.tiff') mimeType = 'image/tiff';
+  let mimeType: string;
+  const imageExts: Record<string, string> = {
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp',
+    '.tif': 'image/tiff',
+    '.tiff': 'image/tiff',
+    '.bmp': 'image/bmp',
+  };
+  mimeType = imageExts[ext] || 'image/png';
 
   const base64 = imageBuffer.toString('base64');
   const dataUrl = `data:${mimeType};base64,${base64}`;
@@ -187,25 +212,47 @@ async function processImage(filePath: string): Promise<OCRResult> {
   };
 }
 
+// ── Main dispatcher ──────────────────────────────────────────────────────────
+
 export async function processFile(filePath: string): Promise<OCRResult> {
   const ext = path.extname(filePath).toLowerCase();
 
+  // ── PDF ──────────────────────────────────────────────────────────────────
   if (ext === '.pdf') {
     let pdfText = '';
+    let pageCount = 0;
 
     try {
-      pdfText = await extractTextFromPDF(filePath);
-      log.info('PDF text extraction completed, chars:', pdfText.length);
+      const pdfjsLib = require('pdfjs-dist/legacy/build/pdf');
+      const fileBuffer = fs.readFileSync(filePath);
+      const data = new Uint8Array(fileBuffer);
+      const pdf = await pdfjsLib.getDocument({ data }).promise;
+      pageCount = pdf.numPages;
+
+      let pagesWithText = 0;
+      for (let i = 1; i <= pageCount; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        const pageText = content.items
+          .map((item: any) => item.str)
+          .filter((s: string) => s && s.trim().length > 0)
+          .join(' ');
+        if (pageText.trim().length > 0) {
+          pagesWithText++;
+          pdfText += pageText + '\n';
+        }
+      }
+      log.info('PDF: extracted', pdfText.length, 'chars from', pagesWithText, '/', pageCount, 'pages');
     } catch (pdfError) {
-      log.error('PDF text extraction failed:', pdfError);
-      pdfText = '';
+      log.error('PDF processing failed:', pdfError);
     }
 
     const extractedFromPdf = analyzeDocument(pdfText);
-    const hasMinimalData = Object.values(extractedFromPdf).some(v => v !== undefined && v !== 0);
+    const hasData = Object.values(extractedFromPdf).some(v => v !== undefined && v !== 0);
+    const hasText = pdfText.trim().length > 50;
 
-    if (hasMinimalData) {
-      const lines = pdfText.split('\n').filter(line => line.trim().length > 0);
+    if (hasData || hasText) {
+      const lines = pdfText.split('\n').filter(l => l.trim().length > 0);
       return {
         text: pdfText,
         confidence: 0.95,
@@ -215,22 +262,65 @@ export async function processFile(filePath: string): Promise<OCRResult> {
       };
     }
 
-    log.info('PDF extraction produced minimal data, falling back to image OCR');
+    // No extractable text → signal renderer to render pages
+    log.info('PDF has no text layer (' + pageCount + ' pages), requesting renderer-side page rendering');
+    return {
+      text: '',
+      confidence: 0,
+      lines: [],
+      extractedData: {},
+      source: 'pdf',
+      needsPageRendering: true,
+      pageCount,
+    };
+  }
 
+  // ── DOCX ─────────────────────────────────────────────────────────────────
+  if (ext === '.docx' || ext === '.doc') {
     try {
-      const ocrResult = await processImage(filePath);
+      const text = await extractTextFromDOCX(filePath);
+      const lines = text.split('\n').filter(l => l.trim().length > 0);
+      const extractedData = analyzeDocument(text);
       return {
-        text: ocrResult.text + '\n\n[Original PDF text: ' + pdfText + ']',
-        confidence: ocrResult.confidence,
-        lines: ocrResult.lines,
-        extractedData: { ...extractedFromPdf, ...ocrResult.extractedData },
-        source: 'ocr',
+        text,
+        confidence: 0.9,
+        lines,
+        extractedData,
+        source: 'docx',
       };
-    } catch (ocrError) {
-      log.error('OCR also failed:', ocrError);
-      throw new Error('Could not extract data from this PDF. Please ensure the file is a valid document or try uploading as an image.');
+    } catch (docxError) {
+      log.error('DOCX extraction failed:', docxError);
+      throw new Error('Konnte die DOCX-Datei nicht lesen. Bitte als PDF oder Bild exportieren.');
     }
-  } else {
+  }
+
+  // ── TXT ──────────────────────────────────────────────────────────────────
+  if (ext === '.txt') {
+    try {
+      const text = await extractTextFromTXT(filePath);
+      const lines = text.split('\n').filter(l => l.trim().length > 0);
+      const extractedData = analyzeDocument(text);
+      return {
+        text,
+        confidence: 1.0,
+        lines,
+        extractedData,
+        source: 'text',
+      };
+    } catch (txtError) {
+      log.error('TXT reading failed:', txtError);
+      throw new Error('Konnte die Textdatei nicht lesen.');
+    }
+  }
+
+  // ── Images (jpg, jpeg, png, tif, tiff, gif, webp, bmp) ───────────────────
+  const imageExts = ['.jpg', '.jpeg', '.png', '.tif', '.tiff', '.gif', '.webp', '.bmp'];
+  if (imageExts.includes(ext)) {
     return await processImage(filePath);
   }
+
+  throw new Error(
+    `Nicht unterstütztes Dateiformat: ${ext}. ` +
+    `Erlaubt: PDF, DOCX, TXT sowie Bilder (JPG, PNG, TIFF, GIF, WebP, BMP).`
+  );
 }

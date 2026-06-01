@@ -62,7 +62,7 @@ export default function PayslipUpload() {
       <div className="max-w-3xl mx-auto px-4 py-6">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
           <p className="text-gray-600 mb-4">{t.payslipUpload.description}</p>
-          <DropZone onFiles={handleFiles} accept=".pdf,.jpg,.jpeg,.png,.tiff,.gif,.webp,.bmp" disabled={processing} />
+          <DropZone onFiles={handleFiles} accept=".pdf,.docx,.doc,.txt,.jpg,.jpeg,.png,.tiff,.tif,.gif,.webp,.bmp" disabled={processing} />
           {processing && (
             <div className="mt-4 flex items-center gap-3 text-blue-600">
               <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
