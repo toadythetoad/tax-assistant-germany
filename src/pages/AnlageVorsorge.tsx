@@ -16,7 +16,7 @@ const fields: FieldDef[] = [
 ];
 
 export default function AnlageVorsorge() {
-  const { setApp, getForm, setForm } = useApp();
+  const { setApp, getForm, setForm, saveYearData } = useApp();
   const { t } = useLanguage();
   const [data, setData] = useState<any>(getForm('anlageVorsorge') || {});
 
@@ -26,6 +26,7 @@ export default function AnlageVorsorge() {
 
   function onSave() {
     setForm('anlageVorsorge', data);
+    saveYearData();
     setApp({ page: 'formsOverview' });
   }
 

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useApp, useLanguage } from '../store/AppContext';
 import { Button } from '../components/FormComponents';
 
@@ -14,11 +15,20 @@ const actions = [
 ];
 
 export default function Dashboard() {
-  const { app, setApp } = useApp();
+  const { app, setApp, loadYearData, saveYearData, importFromPreviousYear } = useApp();
   const { t, language } = useLanguage();
+  const [imported, setImported] = useState(false);
 
   function setYear(year: number) {
-    setApp({ year, taxReturn: app.taxReturns[year] || null });
+    saveYearData();
+    loadYearData(year);
+  }
+
+  function handleImportPrevious() {
+    const ok = importFromPreviousYear();
+    saveYearData();
+    setImported(ok);
+    setTimeout(() => setImported(false), 3000);
   }
 
   return (
@@ -52,14 +62,23 @@ export default function Dashboard() {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-8">
-        <div className="mb-6">
-          <h2 className="text-xl font-semibold text-gray-800">
-            {t.dashboard.taxReturn} {app.year}
-          </h2>
-          <p className="text-sm text-gray-500 mt-1">
-            {app.profile ? `${app.profile.firstName || ''} ${app.profile.lastName || ''}`.trim() || '' : ''}
-            {' · '}{(t.states as any)[app.state]}
-          </p>
+        <div className="mb-6 flex items-start justify-between">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-800">
+              {t.dashboard.taxReturn} {app.year}
+            </h2>
+            <p className="text-sm text-gray-500 mt-1">
+              {app.profile ? `${app.profile.firstName || ''} ${app.profile.lastName || ''}`.trim() || '' : ''}
+              {' · '}{(t.states as any)[app.state]}
+            </p>
+          </div>
+          <div className="flex gap-2">
+            {app.year > 2020 && (
+              <Button variant="ghost" onClick={handleImportPrevious} title="Daten aus Vorjahr übernehmen">
+                {imported ? '✓ Importiert' : '↩ Vorjahr importieren'}
+              </Button>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

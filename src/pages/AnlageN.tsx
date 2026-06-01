@@ -18,7 +18,7 @@ const fields: FieldDef[] = [
 ];
 
 export default function AnlageN() {
-  const { setApp, getForm, setForm } = useApp();
+  const { setApp, getForm, setForm, saveYearData } = useApp();
   const { t } = useLanguage();
   const [data, setData] = useState<any>(getForm('anlageN') || {});
 
@@ -28,6 +28,7 @@ export default function AnlageN() {
 
   function onSave() {
     setForm('anlageN', data);
+    saveYearData();
     setApp({ page: 'formsOverview' });
   }
 

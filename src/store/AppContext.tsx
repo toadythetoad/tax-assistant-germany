@@ -16,6 +16,9 @@ interface AppContextType {
   setApp: (state: Partial<AppState>) => void;
   setForm: (key: string, data: any) => void;
   getForm: (key: string) => any;
+  saveYearData: () => void;
+  loadYearData: (year: number) => void;
+  importFromPreviousYear: () => boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -35,6 +38,50 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setAppState(prev => ({ ...prev, ...partial }));
   }
 
+  // Store current year's data into taxReturns
+  function saveYearData() {
+    setAppState(prev => {
+      const yearData = prev.taxReturns[prev.year] || {};
+      return {
+        ...prev,
+        taxReturns: {
+          ...prev.taxReturns,
+          [prev.year]: {
+            ...yearData,
+            forms: { ...prev.forms },
+            taxReturn: prev.taxReturn ? { ...prev.taxReturn } : null,
+          },
+        },
+      };
+    });
+  }
+
+  // Load data for a specific year
+  function loadYearData(year: number) {
+    setAppState(prev => {
+      const yearData = prev.taxReturns[year];
+      return {
+        ...prev,
+        year,
+        forms: yearData?.forms ? { ...yearData.forms } : {},
+        taxReturn: yearData?.taxReturn || null,
+        page: 'dashboard',
+      };
+    });
+  }
+
+  // Copy previous year's form data to current year
+  function importFromPreviousYear(): boolean {
+    const prevYear = app.year - 1;
+    const prevData = app.taxReturns[prevYear];
+    if (!prevData?.forms) return false;
+    setAppState(prev => ({
+      ...prev,
+      forms: { ...prevData.forms },
+    }));
+    return true;
+  }
+
   function setForm(key: string, data: any) {
     setAppState(prev => ({
       ...prev,
@@ -47,7 +94,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AppContext.Provider value={{ app, setApp, setForm, getForm }}>
+    <AppContext.Provider value={{ app, setApp, setForm, getForm, saveYearData, loadYearData, importFromPreviousYear }}>
       {children}
     </AppContext.Provider>
   );
