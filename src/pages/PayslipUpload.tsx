@@ -3,6 +3,7 @@ import { useApp, useLanguage } from '../store/AppContext';
 import DropZone from '../components/DropZone';
 import { Input, Button } from '../components/FormComponents';
 import { processFile as doOCR } from '../utils/ocrClient';
+import DocumentPreview from '../components/DocumentPreview';
 
 export default function PayslipUpload() {
   const { app, setApp } = useApp();
@@ -11,10 +12,12 @@ export default function PayslipUpload() {
   const [error, setError] = useState<string | null>(null);
   const [ocrResult, setOcrResult] = useState<any>(null);
   const [result, setResult] = useState<any>(null);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
 
   async function handleFiles(files: File[]) {
     const file = files[0];
     if (!file) return;
+    setUploadedFile(file);
     setProcessing(true);
     setError(null);
     setOcrResult(null);
@@ -59,7 +62,7 @@ export default function PayslipUpload() {
         </div>
       </header>
 
-      <div className="max-w-3xl mx-auto px-4 py-6">
+      <div className="max-w-6xl mx-auto px-4 py-6">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
           <p className="text-gray-600 mb-4">{t.payslipUpload.description}</p>
           <DropZone onFiles={handleFiles} accept=".pdf,.docx,.doc,.txt,.jpg,.jpeg,.png,.tiff,.tif,.gif,.webp,.bmp" disabled={processing} />
@@ -76,48 +79,61 @@ export default function PayslipUpload() {
           )}
         </div>
 
-        {result && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h2 className="font-semibold text-green-700 mb-3">{t.payslipUpload.success}</h2>
-            <p className="text-sm text-gray-500 mb-4">{t.payslipUpload.confirmData}</p>
-
-            {ocrResult && (
-              <div className="mb-4 p-3 bg-blue-50 rounded text-sm">
-                <span className="font-medium">Erkennung:</span> {Math.round(ocrResult.confidence * 100)}%
-                ({ocrResult.source === 'ocr' ? 'Bild-OCR' : 'PDF-Text'})
-              </div>
-            )}
-
-            <div className="space-y-4">
-              {result.employer && (
-                <div className="flex justify-between p-3 bg-gray-50 rounded">
-                  <span className="text-gray-600">Arbeitgeber</span>
-                  <span className="font-medium">{result.employer}</span>
-                </div>
-              )}
-              <Input label="Bruttojahreseinkommen" type="number" value={result.grossIncome || ''}
-                onChange={(e) => setResult({ ...result, grossIncome: parseFloat(e.target.value) || 0 })} />
-              <Input label="Nettogehalt" type="number" value={result.netSalary || ''}
-                onChange={(e) => setResult({ ...result, netSalary: parseFloat(e.target.value) || 0 })} />
-              {result.capitalGains > 0 && (
-                <Input label="Kapitalerträge" type="number" value={result.capitalGains || ''}
-                  onChange={(e) => setResult({ ...result, capitalGains: parseFloat(e.target.value) || 0 })} />
-              )}
-              {result.pensionContributions > 0 && (
-                <Input label="Rentenversicherung" type="number" value={result.pensionContributions || ''}
-                  onChange={(e) => setResult({ ...result, pensionContributions: parseFloat(e.target.value) || 0 })} />
-              )}
-              {result.insurancePremiums > 0 && (
-                <Input label="Kranken-/Pflegeversicherung" type="number" value={result.insurancePremiums || ''}
-                  onChange={(e) => setResult({ ...result, insurancePremiums: parseFloat(e.target.value) || 0 })} />
-              )}
+        {uploadedFile && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div>
+              <DocumentPreview file={uploadedFile} />
             </div>
+            <div>
+              {result ? (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                  <h2 className="font-semibold text-green-700 mb-3">{t.payslipUpload.success}</h2>
+                  <p className="text-sm text-gray-500 mb-4">{t.payslipUpload.confirmData}</p>
 
-            <div className="flex gap-2 mt-6">
-              <Button variant="secondary" onClick={() => { setResult(null); setOcrResult(null); }}>
-                {t.payslipUpload.discard}
-              </Button>
-              <Button onClick={apply}>{t.payslipUpload.applyData}</Button>
+                  {ocrResult && (
+                    <div className="mb-4 p-3 bg-blue-50 rounded text-sm">
+                      <span className="font-medium">Erkennung:</span> {Math.round(ocrResult.confidence * 100)}%
+                      ({ocrResult.source === 'ocr' ? 'Bild-OCR' : ocrResult.source === 'pdf' ? 'PDF-Text' : ocrResult.source === 'docx' ? 'DOCX' : 'Text'})
+                    </div>
+                  )}
+
+                  <div className="space-y-4">
+                    {result.employer && (
+                      <div className="flex justify-between p-3 bg-gray-50 rounded">
+                        <span className="text-gray-600">Arbeitgeber</span>
+                        <span className="font-medium">{result.employer}</span>
+                      </div>
+                    )}
+                    <Input label="Bruttojahreseinkommen" type="number" value={result.grossIncome || ''}
+                      onChange={(e) => setResult({ ...result, grossIncome: parseFloat(e.target.value) || 0 })} />
+                    <Input label="Nettogehalt" type="number" value={result.netSalary || ''}
+                      onChange={(e) => setResult({ ...result, netSalary: parseFloat(e.target.value) || 0 })} />
+                    {result.capitalGains > 0 && (
+                      <Input label="Kapitalerträge" type="number" value={result.capitalGains || ''}
+                        onChange={(e) => setResult({ ...result, capitalGains: parseFloat(e.target.value) || 0 })} />
+                    )}
+                    {result.pensionContributions > 0 && (
+                      <Input label="Rentenversicherung" type="number" value={result.pensionContributions || ''}
+                        onChange={(e) => setResult({ ...result, pensionContributions: parseFloat(e.target.value) || 0 })} />
+                    )}
+                    {result.insurancePremiums > 0 && (
+                      <Input label="Kranken-/Pflegeversicherung" type="number" value={result.insurancePremiums || ''}
+                        onChange={(e) => setResult({ ...result, insurancePremiums: parseFloat(e.target.value) || 0 })} />
+                    )}
+                  </div>
+
+                  <div className="flex gap-2 mt-6">
+                    <Button variant="secondary" onClick={() => { setResult(null); setOcrResult(null); setUploadedFile(null); }}>
+                      {t.payslipUpload.discard}
+                    </Button>
+                    <Button onClick={apply}>{t.payslipUpload.applyData}</Button>
+                  </div>
+                </div>
+              ) : processing ? (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex items-center justify-center h-64">
+                  <div className="text-gray-500">OCR wird ausgeführt...</div>
+                </div>
+              ) : null}
             </div>
           </div>
         )}

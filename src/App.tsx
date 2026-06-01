@@ -1,5 +1,6 @@
 import { AppProvider, LanguageProvider, useApp } from './store/AppContext';
 import ErrorBoundary from './components/ErrorBoundary';
+import LanguageToggle from './components/LanguageToggle';
 import Welcome from './pages/Welcome';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
@@ -49,6 +50,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       <LanguageProvider>
+        <LanguageToggle />
         <AppProvider>
           <Router />
         </AppProvider>
