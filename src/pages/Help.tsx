@@ -1,9 +1,32 @@
 import { useApp, useLanguage } from '../store/AppContext';
 import { Button } from '../components/FormComponents';
 
+const elsterLinks = [
+  { url: 'https://www.elster.de/eportal/help/main', label: 'ELSTER-Hilfeportal', desc: 'Offizielle ELSTER-Hilfe zu allen Formularen' },
+  { url: 'https://www.elster.de/eportal/help/formulare', label: 'ELSTER-Formularhilfen', desc: 'Detaillierte Hilfe zu jedem Steuerformular' },
+  { url: 'https://www.elster.de/eportal/help/faq', label: 'ELSTER-FAQ', desc: 'Häufig gestellte Fragen zur elektronischen Steuererklärung' },
+];
+
 export default function Help() {
   const { setApp } = useApp();
   const { t } = useLanguage();
+
+  async function openExternal(url: string) {
+    try {
+      await (window as any).electronAPI?.pdf?.openExternal(url);
+    } catch {
+      window.open(url, '_blank');
+    }
+  }
+
+  async function openGuide() {
+    try {
+      const path = await (window as any).electronAPI?.app?.getHelpPath();
+      if (path) await (window as any).electronAPI?.pdf?.openExternal(path);
+    } catch {
+      // fallback
+    }
+  }
 
   const faqs = [
     { q: t.help.faq1q, a: t.help.faq1a },
@@ -40,7 +63,24 @@ export default function Help() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h2 className="font-semibold text-gray-900 mb-3">{t.help.detailedGuide}</h2>
           <p className="text-sm text-gray-600 mb-4">{t.help.detailedGuideText}</p>
-          <Button>{t.help.openGuide}</Button>
+          <Button onClick={openGuide}>{t.help.openGuide}</Button>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h2 className="font-semibold text-gray-900 mb-3">{t.help.elsterHelp}</h2>
+          <p className="text-sm text-gray-600 mb-4">{t.help.elsterHelpText}</p>
+          <div className="space-y-3">
+            {elsterLinks.map((link, i) => (
+              <button
+                key={i}
+                onClick={() => openExternal(link.url)}
+                className="w-full p-4 bg-blue-50 rounded-lg border border-blue-200 text-left hover:bg-blue-100 transition"
+              >
+                <p className="font-medium text-blue-700">{link.label}</p>
+                <p className="text-sm text-blue-600 mt-1">{link.desc}</p>
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">

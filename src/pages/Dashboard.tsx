@@ -10,6 +10,7 @@ const actions = [
   { key: 'preview', icon: '📋', descKey: 'previewDesc', page: 'preview' },
   { key: 'calculator', icon: '🧮', descKey: 'calculatorDesc', page: 'calculation' },
   { key: 'forms', icon: '📝', descKey: 'formsDesc', page: 'formsOverview' },
+  { key: 'elster', icon: '📤', descKey: 'elsterDesc', page: 'elsterExport' },
 ];
 
 export default function Dashboard() {

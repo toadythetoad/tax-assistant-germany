@@ -11,6 +11,7 @@ import Calculation from './pages/Calculation';
 import Settings from './pages/Settings';
 import Help from './pages/Help';
 import FormsOverview from './pages/FormsOverview';
+import ElsterExport from './pages/ElsterExport';
 import AnlageN from './pages/AnlageN';
 import AnlageKAP from './pages/AnlageKAP';
 import AnlageV from './pages/AnlageV';
@@ -39,6 +40,7 @@ function Router() {
     case 'anlageR': return <AnlageR />;
     case 'anlageSO': return <AnlageSO />;
     case 'anlageVorsorge': return <AnlageVorsorge />;
+    case 'elsterExport': return <ElsterExport />;
     default: return <Welcome />;
   }
 }
