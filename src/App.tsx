@@ -10,6 +10,13 @@ import Preview from './pages/Preview';
 import Calculation from './pages/Calculation';
 import Settings from './pages/Settings';
 import Help from './pages/Help';
+import FormsOverview from './pages/FormsOverview';
+import AnlageN from './pages/AnlageN';
+import AnlageKAP from './pages/AnlageKAP';
+import AnlageV from './pages/AnlageV';
+import AnlageR from './pages/AnlageR';
+import AnlageSO from './pages/AnlageSO';
+import AnlageVorsorge from './pages/AnlageVorsorge';
 
 function Router() {
   const { app } = useApp();
@@ -25,6 +32,13 @@ function Router() {
     case 'calculation': return <Calculation />;
     case 'settings': return <Settings />;
     case 'help': return <Help />;
+    case 'formsOverview': return <FormsOverview />;
+    case 'anlageN': return <AnlageN />;
+    case 'anlageKAP': return <AnlageKAP />;
+    case 'anlageV': return <AnlageV />;
+    case 'anlageR': return <AnlageR />;
+    case 'anlageSO': return <AnlageSO />;
+    case 'anlageVorsorge': return <AnlageVorsorge />;
     default: return <Welcome />;
   }
 }

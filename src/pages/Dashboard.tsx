@@ -1,17 +1,24 @@
 import { useApp, useLanguage } from '../store/AppContext';
 import { Button } from '../components/FormComponents';
 
+const years = [2020, 2021, 2022, 2023, 2024, 2025, 2026];
+
 const actions = [
   { key: 'uploadPayslip', icon: '📄', descKey: 'uploadDesc', page: 'payslipUpload' },
   { key: 'startInterview', icon: '💬', descKey: 'interviewDesc', page: 'interview' },
   { key: 'documents', icon: '📁', descKey: 'documentsDesc', page: 'documents' },
   { key: 'preview', icon: '📋', descKey: 'previewDesc', page: 'preview' },
   { key: 'calculator', icon: '🧮', descKey: 'calculatorDesc', page: 'calculation' },
+  { key: 'forms', icon: '📝', descKey: 'formsDesc', page: 'formsOverview' },
 ];
 
 export default function Dashboard() {
-  const { setApp } = useApp();
-  const { t } = useLanguage();
+  const { app, setApp } = useApp();
+  const { t, language } = useLanguage();
+
+  function setYear(year: number) {
+    setApp({ year, taxReturn: app.taxReturns[year] || null });
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -26,7 +33,16 @@ export default function Dashboard() {
               <p className="text-xs text-gray-500">{t.dashboard.welcome}</p>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-3">
+            <select
+              value={app.year}
+              onChange={(e) => setYear(parseInt(e.target.value))}
+              className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white"
+            >
+              {years.map(y => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
             <Button variant="ghost" onClick={() => setApp({ page: 'profile' })}>{t.nav.profile}</Button>
             <Button variant="ghost" onClick={() => setApp({ page: 'settings' })}>{t.nav.settings}</Button>
             <Button variant="ghost" onClick={() => setApp({ page: 'help' })}>{t.nav.help}</Button>
@@ -35,7 +51,15 @@ export default function Dashboard() {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-8">
-        <h2 className="text-xl font-semibold text-gray-800 mb-6">{t.dashboard.recentActivity}</h2>
+        <div className="mb-6">
+          <h2 className="text-xl font-semibold text-gray-800">
+            {t.dashboard.taxReturn} {app.year}
+          </h2>
+          <p className="text-sm text-gray-500 mt-1">
+            {app.profile ? `${app.profile.firstName || ''} ${app.profile.lastName || ''}`.trim() || '' : ''}
+            {' · '}{(t.states as any)[app.state]}
+          </p>
+        </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {actions.map((a) => (
